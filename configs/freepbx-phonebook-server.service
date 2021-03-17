@@ -1,0 +1,14 @@
+[Unit]
+Description=FreePBX phone book server
+After=network.target
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=10
+
+WorkingDirectory=/opt/freepbx-phonebook-server
+ExecStart=/opt/freepbx-phonebook-server/freepbx-phonebook-server
+
+[Install]
+WantedBy=multi-user.target
