@@ -33,6 +33,7 @@ type CiscoIPPhoneDirectory struct {
 
 //DirectoryEntry struct
 type DirectoryEntry struct {
+	GroupID                    int
 	DisplayName, MAC           string
 	PhoneNumber, Company       string
 	FirstName, LastName, Title string
@@ -74,7 +75,7 @@ func ciscoPhonebook(templates *template.Template, groups []Group) error {
 		menuitem.Name = group.Description
 		menuitem.URL = fmt.Sprintf("http://%s:%d/%s", serveraddr, listenport, filename)
 		menuitems = append(menuitems, menuitem)
-		directoryentrys, err := loopUsers(group.Users)
+		directoryentrys, err := loopUsers(group.Users, group.ID)
 		if err != nil {
 			return err
 		}
@@ -104,10 +105,11 @@ func grandstreamPhonebook(templates *template.Template, groups []Group) error {
 	var directoryentrys []DirectoryEntry
 
 	for _, group := range groups {
-		directoryentry, err := loopUsers(group.Users)
+		directoryentry, err := loopUsers(group.Users, group.ID)
 		if err != nil {
 			return err
 		}
+
 		directoryentrys = append(directoryentrys, directoryentry...)
 	}
 
@@ -121,7 +123,28 @@ func grandstreamPhonebook(templates *template.Template, groups []Group) error {
 	return nil
 }
 
-func loopUsers(usersarr string) ([]DirectoryEntry, error) {
+func websitePhonebook(templates *template.Template, groups []Group) error {
+	var directoryentrys []DirectoryEntry
+
+	for _, group := range groups {
+		directoryentry, err := loopUsers(group.Users, group.ID)
+		if err != nil {
+			return err
+		}
+		directoryentrys = append(directoryentrys, directoryentry...)
+	}
+
+	f, err := os.Create(filepath.Join(workdir, "website-phonebook.xml"))
+	if err != nil {
+		return err
+	}
+	templates.ExecuteTemplate(f, "website-phonebook.xml.tpl", Grandsteam{groups, directoryentrys})
+	f.Close()
+
+	return nil
+}
+
+func loopUsers(usersarr string, groupID int) ([]DirectoryEntry, error) {
 	var (
 		err             error
 		directoryentry  DirectoryEntry
@@ -159,6 +182,7 @@ func loopUsers(usersarr string) ([]DirectoryEntry, error) {
 			if err != nil {
 				return directoryentrys, err
 			}
+			directoryentry.GroupID = groupID
 			directoryentrys = append(directoryentrys, directoryentry)
 		}
 	}
@@ -293,6 +317,11 @@ func generatePhoneBooks() error {
 	}
 
 	err = grandstreamPhonebook(allTemplates, groups)
+	if err != nil {
+		return err
+	}
+
+	err = websitePhonebook(allTemplates, groups)
 	if err != nil {
 		return err
 	}

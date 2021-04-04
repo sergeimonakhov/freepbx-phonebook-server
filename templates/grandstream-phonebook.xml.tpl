@@ -10,6 +10,7 @@
   </pbgroup>
 {{-     with $.UserList }}
 {{-       range $user_index, $user_element := . }}
+{{-         if eq $group_id $user_element.GroupID }}
   <Contact>
     {{- $i = inc $i }}
     <id>{{ $i }}</id>
@@ -26,6 +27,7 @@
     <Job>{{ $user_element.Title }}</Job>
     <Company>{{ $user_element.Company }}</Company>
   </Contact>
+{{-         end }}
 {{-       end }}
 {{-     end }}
 {{-   end }}
