@@ -28,16 +28,16 @@ var (
 
 //CiscoIPPhoneDirectory struct
 type CiscoIPPhoneDirectory struct {
-	List []DirectoryEntry
+	List []ADuser
 }
 
-//DirectoryEntry struct
-type DirectoryEntry struct {
+//ADuser struct
+type ADuser struct {
 	GroupID                    int
 	DisplayName, MAC           string
 	PhoneNumber, Company       string
 	FirstName, LastName, Title string
-	Department                 string
+	Department, GroupName      string
 }
 
 //CiscoIPPhoneMenu struct
@@ -60,24 +60,27 @@ type Group struct {
 //Grandsteam struct
 type Grandsteam struct {
 	GroupList []Group
-	UserList  []DirectoryEntry
+	UserList  []ADuser
 }
 
-func ciscoPhonebook(templates *template.Template, groups []Group) error {
+//Create phonebook for cisco phones
+func ciscoPhonebook(templates *template.Template, groups []Group, Users []ADuser) error {
 	var (
 		menuitems []MenuItem
 		menuitem  MenuItem
 	)
 
 	for _, group := range groups {
+		var usersInGroup []ADuser
 		filename := fmt.Sprintf("%s.%s", group.GroupName, "xml")
 
 		menuitem.Name = group.Description
 		menuitem.URL = fmt.Sprintf("http://%s:%d/%s", serveraddr, listenport, filename)
 		menuitems = append(menuitems, menuitem)
-		directoryentrys, err := loopUsers(group.Users, group.ID)
-		if err != nil {
-			return err
+		for _, User := range Users {
+			if User.GroupID == group.ID {
+				usersInGroup = append(usersInGroup, User)
+			}
 		}
 		directoryentryfile := filepath.Join(workdir, filename)
 
@@ -86,7 +89,7 @@ func ciscoPhonebook(templates *template.Template, groups []Group) error {
 			if err != nil {
 				return err
 			}
-			templates.ExecuteTemplate(f, "cisco-ipphonedirectory.xml.tpl", CiscoIPPhoneDirectory{directoryentrys})
+			templates.ExecuteTemplate(f, "cisco-ipphonedirectory.xml.tpl", CiscoIPPhoneDirectory{usersInGroup})
 			f.Close()
 		}
 	}
@@ -101,60 +104,42 @@ func ciscoPhonebook(templates *template.Template, groups []Group) error {
 	return nil
 }
 
-func grandstreamPhonebook(templates *template.Template, groups []Group) error {
-	var directoryentrys []DirectoryEntry
-
-	for _, group := range groups {
-		directoryentry, err := loopUsers(group.Users, group.ID)
-		if err != nil {
-			return err
-		}
-
-		directoryentrys = append(directoryentrys, directoryentry...)
-	}
-
+//Create phonebook for grandstream phones
+func grandstreamPhonebook(templates *template.Template, groups []Group, Users []ADuser) error {
 	f, err := os.Create(filepath.Join(workdir, "phonebook.xml"))
 	if err != nil {
 		return err
 	}
-	templates.ExecuteTemplate(f, "grandstream-phonebook.xml.tpl", Grandsteam{groups, directoryentrys})
+	templates.ExecuteTemplate(f, "grandstream-phonebook.xml.tpl", Grandsteam{groups, Users})
 	f.Close()
 
 	return nil
 }
 
-func websitePhonebook(templates *template.Template, groups []Group) error {
-	var directoryentrys []DirectoryEntry
-
-	for _, group := range groups {
-		directoryentry, err := loopUsers(group.Users, group.ID)
-		if err != nil {
-			return err
-		}
-		directoryentrys = append(directoryentrys, directoryentry...)
-	}
-
+//Create phonebook for website phones
+func websitePhonebook(templates *template.Template, groups []Group, Users []ADuser) error {
 	f, err := os.Create(filepath.Join(workdir, "website-phonebook.xml"))
 	if err != nil {
 		return err
 	}
-	templates.ExecuteTemplate(f, "website-phonebook.xml.tpl", Grandsteam{groups, directoryentrys})
+	templates.ExecuteTemplate(f, "website-phonebook.xml.tpl", Grandsteam{groups, Users})
 	f.Close()
 
 	return nil
 }
 
-func loopUsers(usersarr string, groupID int) ([]DirectoryEntry, error) {
+//Create ADuser slice
+func selectUsers(usersarr string, groupID int, groupName string) ([]ADuser, error) {
 	var (
-		err             error
-		directoryentry  DirectoryEntry
-		users           []string
-		directoryentrys []DirectoryEntry
+		err        error
+		User       ADuser
+		users      []string
+		sliceUsers []ADuser
 	)
 
 	err = json.Unmarshal([]byte(usersarr), &users)
 	if err != nil {
-		return directoryentrys, err
+		return sliceUsers, err
 	}
 
 	if len(users) > 0 {
@@ -172,28 +157,30 @@ func loopUsers(usersarr string, groupID int) ([]DirectoryEntry, error) {
 
 		rows, err := db.Query(query, usersid...)
 		if err != nil {
-			return directoryentrys, err
+			return sliceUsers, err
 		}
 
 		for rows.Next() {
-			err := rows.Scan(&directoryentry.PhoneNumber, &directoryentry.FirstName, &directoryentry.LastName,
-				&directoryentry.DisplayName, &directoryentry.Title, &directoryentry.Company,
-				&directoryentry.Department, &directoryentry.MAC)
+			err := rows.Scan(&User.PhoneNumber, &User.FirstName, &User.LastName,
+				&User.DisplayName, &User.Title, &User.Company,
+				&User.Department, &User.MAC)
 			if err != nil {
-				return directoryentrys, err
+				return sliceUsers, err
 			}
-			directoryentry.GroupID = groupID
-			directoryentrys = append(directoryentrys, directoryentry)
+			User.GroupID = groupID
+			User.GroupName = groupName
+			sliceUsers = append(sliceUsers, User)
 		}
 	}
 
-	return directoryentrys, nil
+	return sliceUsers, nil
 }
 
+//Get PBX groups
 func getPBXGroups() ([]Group, error) {
 	var (
-		group  Group
-		groups []Group
+		group      Group
+		groupslice []Group
 	)
 
 	query := `
@@ -215,12 +202,29 @@ func getPBXGroups() ([]Group, error) {
 		if err != nil {
 			return []Group{}, err
 		}
-		groups = append(groups, group)
+		groupslice = append(groupslice, group)
 	}
 
-	return groups, nil
+	return groupslice, nil
 }
 
+//Get PBX users
+func getPBXUsers(groups []Group) ([]ADuser, error) {
+	var Users []ADuser
+
+	for _, group := range groups {
+		User, err := selectUsers(group.Users, group.ID, group.GroupName)
+		if err != nil {
+			return []ADuser{}, err
+		}
+
+		Users = append(Users, User...)
+	}
+
+	return Users, nil
+}
+
+//Parse PBX config file
 func getDBConnectionParams() (string, error) {
 	var con string
 
@@ -249,6 +253,7 @@ func getDBConnectionParams() (string, error) {
 	return con, nil
 }
 
+//Get local ip adress
 func getIP() (string, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -286,6 +291,7 @@ func getIP() (string, error) {
 	return "", nil
 }
 
+//Main func for generate all PhoneBooks
 func generatePhoneBooks() error {
 
 	fmt.Println("Updating phone books...")
@@ -295,33 +301,45 @@ func generatePhoneBooks() error {
 		os.Mkdir(workdir, 0755)
 	}
 
-	groups, err := getPBXGroups()
-	if err != nil {
-		return err
-	}
-
+	//Increment fot template
 	increment := template.FuncMap{
 		"inc": func(i int) int {
 			return i + 1
 		},
 	}
 
+	//Get PBX Groups
+	groups, err := getPBXGroups()
+	if err != nil {
+		return err
+	}
+
+	//Get PBX users for per groups
+	Users, err := getPBXUsers(groups)
+	if err != nil {
+		return err
+	}
+
+	//Create template
 	allTemplates, err := template.New("phonebooks").Funcs(increment).ParseGlob(filepath.Join(templatesFileDir, "*"))
 	if err != nil {
 		return err
 	}
 
-	err = ciscoPhonebook(allTemplates, groups)
+	//Generate Cisco Phonebook
+	err = ciscoPhonebook(allTemplates, groups, Users)
 	if err != nil {
 		return err
 	}
 
-	err = grandstreamPhonebook(allTemplates, groups)
+	//Generate Grandstream Phonebook
+	err = grandstreamPhonebook(allTemplates, groups, Users)
 	if err != nil {
 		return err
 	}
 
-	err = websitePhonebook(allTemplates, groups)
+	//Generate Website Phonebook
+	err = websitePhonebook(allTemplates, groups, Users)
 	if err != nil {
 		return err
 	}
@@ -329,6 +347,7 @@ func generatePhoneBooks() error {
 	return nil
 }
 
+//Http loging
 func logRequest(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
