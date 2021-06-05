@@ -1,6 +1,10 @@
-## FreePBX phone book server
+## FreePBX phonebook server
+
+This is phonebook server for cisco and grandstream phones
 
 ## How it works
+
+Phonebook server filters out AD groups for the phonebook using regex - `pbx-phonebook. *`. Generates phonebook based on templates (`-templates-file-dir`) and saves them in the directory (`-workdir`) for delivery to phones. Generation of phonebook is dynamic and is run by cron (`-cron`)
 
 ## Requirements:
 
@@ -9,7 +13,7 @@
 ## Flags:
 
 ```bash
-Usage of ./freepbx-phonebook-server-mac:
+Usage of ./freepbx-phonebook-server:
   -cron string
     	Set update time phone books (default "*/5 * * * *")
   -freepbx-conf string
