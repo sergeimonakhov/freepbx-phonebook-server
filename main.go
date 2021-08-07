@@ -38,6 +38,7 @@ type ADuser struct {
 	PhoneNumber, Company       string
 	FirstName, LastName, Title string
 	Department, GroupName      string
+	WorkPhoneNumber            string
 }
 
 //CiscoIPPhoneMenu struct
@@ -149,7 +150,7 @@ func selectUsers(usersarr string, groupID int, groupName string) ([]ADuser, erro
 		}
 
 		query := `
-	      SELECT default_extension,fname,lname,displayname,title,company,department,fax
+	      SELECT default_extension,fname,lname,displayname,title,company,department,work,fax
 	      FROM userman_users
 	      WHERE id
 	      IN (?` + strings.Repeat(",?", len(usersid)-1) + `)
@@ -163,7 +164,7 @@ func selectUsers(usersarr string, groupID int, groupName string) ([]ADuser, erro
 		for rows.Next() {
 			err := rows.Scan(&User.PhoneNumber, &User.FirstName, &User.LastName,
 				&User.DisplayName, &User.Title, &User.Company,
-				&User.Department, &User.MAC)
+				&User.Department, &User.WorkPhoneNumber, &User.MAC)
 			if err != nil {
 				return sliceUsers, err
 			}

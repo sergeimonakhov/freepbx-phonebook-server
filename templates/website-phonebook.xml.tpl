@@ -5,6 +5,7 @@
   <Contact>
     <DisplayName>{{ .DisplayName }}</DisplayName>
     <PhoneNumber>{{ .PhoneNumber }}</PhoneNumber>
+    <WorkPhoneNumber>{{ .WorkPhoneNumber }}</WorkPhoneNumber>
     <Department>{{ .Department }}</Department>
     <Job>{{ .Title }}</Job>
   </Contact>
