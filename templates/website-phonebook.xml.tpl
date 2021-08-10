@@ -7,6 +7,8 @@
     <PhoneNumber>{{ .PhoneNumber }}</PhoneNumber>
     <WorkPhoneNumber>{{ .WorkPhoneNumber }}</WorkPhoneNumber>
     <Department>{{ .Department }}</Department>
+    <Email>{{ .Email }}</Email>
+    <Description>{{ .Description }}</Description>
     <Job>{{ .Title }}</Job>
   </Contact>
 {{-   end }}
