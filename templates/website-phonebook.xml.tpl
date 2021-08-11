@@ -9,6 +9,7 @@
     <Department>{{ .Department }}</Department>
     <Email>{{ .Email }}</Email>
     <Description>{{ .Description }}</Description>
+    <Home>{{ .Home }}</Home>
     <Job>{{ .Title }}</Job>
   </Contact>
 {{-   end }}
